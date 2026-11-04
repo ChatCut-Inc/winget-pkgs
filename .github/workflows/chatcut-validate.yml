@@ -1,0 +1,70 @@
+name: Validate ChatCut WinGet candidate
+run-name: "Validate ChatCut ${{ inputs.version }} (no submission)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Prepared chatcut-<version> branch; validation only, never opens PRs"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - name: Validate the selected version
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:VERSION -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') { throw 'A stable version is required.' }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/chatcut
+          path: tools
+      - uses: actions/checkout@v4
+        with:
+          ref: chatcut-${{ inputs.version }}
+          persist-credentials: false
+          sparse-checkout: manifests/c/ChatCut/ChatCut/${{ inputs.version }}
+          path: candidate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+      - name: Read the reviewed candidate manifest
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          npm install --prefix "$RUNNER_TEMP/manifest-tools" --ignore-scripts --no-audit --no-fund yaml@2.9.0
+          node --input-type=module <<'JS'
+          import {createRequire} from 'node:module';
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import path from 'node:path';
+          const {parse}=createRequire(path.join(process.env.RUNNER_TEMP,'manifest-tools','package.json'))('yaml');
+          const version=process.env.VERSION;
+          const manifest=parse(readFileSync(`candidate/manifests/c/ChatCut/ChatCut/${version}/ChatCut.ChatCut.installer.yaml`,'utf8'));
+          if(manifest.PackageIdentifier!=='ChatCut.ChatCut'||manifest.PackageVersion!==version||manifest.Installers.length!==1)throw new Error('Unexpected manifest identity/architecture');
+          const entry=manifest.Installers[0];
+          if(entry.Architecture!=='x64'||!entry.InstallerUrl.startsWith('https://api.chatcut.io/desktop/update/global/ChatCut%20Setup%20'))throw new Error('Unexpected installer');
+          const response=await fetch(entry.InstallerUrl,{method:'HEAD',signal:AbortSignal.timeout(30000)});
+          if(!response.ok)throw new Error(`Installer HTTP ${response.status}`);
+          writeFileSync('candidate/release.json',JSON.stringify({schemaVersion:1,version,platforms:{windows:{artifacts:[{url:entry.InstallerUrl,sha256:entry.InstallerSha256.toLowerCase(),size:Number(response.headers.get('content-length'))}]}}}));
+          JS
+      - name: Verify signature, WinGet installation, ARP and uninstall
+        shell: pwsh
+        run: ./tools/.github/chatcut/verify-winget.ps1 -Directory candidate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chatcut-winget-install-evidence
+          path: |
+            ${{ runner.temp }}/chatcut-winget-arp.json
+            ~/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/DiagOutputDir/
+          retention-days: 90
