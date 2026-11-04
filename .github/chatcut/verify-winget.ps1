@@ -21,7 +21,7 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
 if ($clientVersion -lt [version]'1.29.380') {
   # Pin a reviewed stable client: hosted images can lag the manifest schema.
   Install-Module Microsoft.WinGet.Client -Scope CurrentUser -Repository PSGallery -Force
-  Repair-WinGetPackageManager -AllUsers -Version '1.29.380' -Force
+  Repair-WinGetPackageManager -Version '1.29.380' -Force
   $env:PATH += ";$env:LOCALAPPDATA\Microsoft\WindowsApps"
 }
 winget --version
