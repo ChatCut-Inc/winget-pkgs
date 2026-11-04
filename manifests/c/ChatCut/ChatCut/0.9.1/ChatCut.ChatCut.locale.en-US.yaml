@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
+
+PackageIdentifier: ChatCut.ChatCut
+PackageVersion: 0.9.1
+PackageLocale: en-US
+Publisher: ChatCut
+PublisherUrl: https://chatcut.io/
+PrivacyUrl: https://chatcut.io/privacy
+PackageName: ChatCut
+PackageUrl: https://chatcut.io/
+License: Proprietary
+LicenseUrl: https://chatcut.io/terms
+ShortDescription: AI-powered video editor
+Tags:
+  - ai
+  - video
+  - video-editing
+ManifestType: defaultLocale
+ManifestVersion: 1.12.0
