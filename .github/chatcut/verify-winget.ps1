@@ -53,7 +53,10 @@ try {
     throw 'Installed Apps & Features identity/scope differs from the generated manifest. Review metadata before submission.'
   }
   if (-not $entries[0].QuietUninstallString) { throw 'Installer did not register silent uninstall.' }
-  $uninstall = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d', '/s', '/c', $entries[0].QuietUninstallString) -Wait -PassThru
+  if ($entries[0].QuietUninstallString -notmatch '^"([^"]+)"\s+(.+)$') { throw 'Unexpected quoted uninstall command format.' }
+  $uninstaller = $Matches[1]
+  $uninstallArguments = $Matches[2]
+  $uninstall = Start-Process -FilePath $uninstaller -ArgumentList $uninstallArguments -Wait -PassThru
   if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed: $($uninstall.ExitCode)" }
   if (@(Get-ChatCutInstallation).Count -ne 0) { throw 'Uninstall left a registered ChatCut installation.' }
 } finally {
