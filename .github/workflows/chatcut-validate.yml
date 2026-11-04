@@ -60,11 +60,19 @@ jobs:
       - name: Verify signature, WinGet installation, ARP and uninstall
         shell: pwsh
         run: ./tools/.github/chatcut/verify-winget.ps1 -Directory candidate
+      - name: Collect Windows evidence into one volume
+        if: always()
+        shell: pwsh
+        run: |
+          $evidence = Join-Path $env:RUNNER_TEMP 'chatcut-winget-evidence'
+          New-Item -ItemType Directory -Force $evidence | Out-Null
+          $arp = Join-Path $env:RUNNER_TEMP 'chatcut-winget-arp.json'
+          if (Test-Path $arp) { Copy-Item $arp $evidence }
+          $logs = Join-Path $env:LOCALAPPDATA 'Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/DiagOutputDir'
+          if (Test-Path $logs) { Copy-Item "$logs/*.log" $evidence -ErrorAction SilentlyContinue }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: chatcut-winget-install-evidence
-          path: |
-            ${{ runner.temp }}/chatcut-winget-arp.json
-            ~/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/DiagOutputDir/
+          path: ${{ runner.temp }}/chatcut-winget-evidence
           retention-days: 90
